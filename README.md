@@ -204,3 +204,30 @@ will be ignored.
 syntax](http://docs.python.org/2/library/re.html#regular-expression-syntax).
 See more info on filters in the [base
 config](https://github.com/mk-fg/fs-bitrot-scrubber/blob/master/fs_bitrot_scrubber/core.yaml).
+
+
+
+Plans
+--------------------
+
+- Add sane, robust and behind-the-scenes parity check/restore for at least
+	metadata db (or maybe also filtered list of files) via
+	[zfec](https://tahoe-lafs.org/trac/zfec) or similar module.
+
+- More dynamic rate-limiting options - query
+	[sysstat](http://sebastien.godard.pagesperso-orange.fr/) or similar system for
+	disk load and scale up/down depending on that.
+
+	Though maybe blkio cgroup resource controller and ionice settings should
+	suffice here.
+	Might be worth adding example systemd unit with these settings.
+
+- Use fcntl leases, inotify or some other non-polling mechanism to reliably
+	detect changes from other pids during file checksumming.
+
+- Support resuming of scrubbing operation without scanning paths for files (and
+	bumping metadata generation).
+
+- Better progress logging - should be easy to display how much files and even
+	GiBs is left to check on a single run.
+	Might also be worth logging performance stats.
