@@ -2,6 +2,7 @@
 
 import itertools as it, operator as op, functools as ft
 from contextlib import contextmanager, closing
+from datetime import datetime
 from time import time
 from os.path import exists
 import os, sys, sqlite3, logging, hashlib
@@ -35,7 +36,6 @@ class FileNode(object):
 			if self.meta['checksum'] != digest: # either new hash or changes
 				if self.meta['checksum'] is not None: # can still be intentional change w/ reverted mtime
 					if max(abs(self.meta['ctime'] - ctime), abs(self.meta['mtime'] - mtime)) >= 1:
-						# TODO: flag to log these as warnings maybe?
 						self.log.info( 'Detected change in'
 							' file contents and ctime: {}'.format(self.meta['path']) )
 					else: # bitrot!!!
@@ -162,6 +162,7 @@ class MetaDB(object):
 		if new: gen += 1
 		return gen
 
+
 	def metadata_check(self, path, size, mtime, ctime):
 		with self._cursor('SELECT * FROM files WHERE path = ? LIMIT 1', (path,)) as c:
 			row = c.fetchone()
@@ -201,3 +202,12 @@ class MetaDB(object):
 			if skip_until != 0: return self.get_file_to_scrub(skip_until=skip_until)
 		if not row: return # nothing more/yet to check
 		return FileNode(self._query, self._log, row, checksum=self._checksum)
+
+
+	def list_paths(self):
+		with self._cursor('SELECT * FROM files') as c:
+			for row in c:
+				yield dict(
+					path=row['path'], clean=bool(row['clean']), dirty=bool(row['dirty']),
+					last_scrub=datetime.fromtimestamp(row['last_scrub']) if row['last_scrub'] else None,
+					last_skip=datetime.fromtimestamp(row['last_skip']) if row['last_skip'] else None )

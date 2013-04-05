@@ -3,6 +3,7 @@ from __future__ import print_function
 
 import itertools as it, operator as op, functools as ft
 from os.path import realpath, join, isdir, dirname, basename, exists
+from contextlib import contextmanager
 from time import time, sleep
 import os, sys, re, hashlib, stat, types, logging
 
@@ -82,13 +83,13 @@ def file_list(paths, xdev=True, path_filter=list()):
 
 
 def scrub( paths, meta_db,
-		xdev=True, path_filter=list(),
+		xdev=True, path_filter=list(), scan_only=False,
 		skip_for=3 * 3600, bs=4 * 2**20, rate_limits=None ):
 	log = logging.getLogger('scrubber')
 	log.debug('Scrub generation number: {}'.format(meta_db.generation))
 
 	scan_limit = getattr(rate_limits, 'scan', None)
-	read_limit = getattr(rate_limits, 'read', None)
+	if not scan_only: read_limit = getattr(rate_limits, 'read', None)
 	delay_ts = 0 # deadline for the next limit
 
 	file_node = None # currently scrubbed (checksummed) file
@@ -109,8 +110,7 @@ def scrub( paths, meta_db,
 		while True:
 			if ts >= delay_ts: break
 
-			if not file_node: # pick next node
-				# TODO: check mtime after hashing to see if file changed since then
+			if not scan_only and not file_node: # pick next node
 				file_node = meta_db.get_file_to_scrub(skip_for=skip_for)
 			if not file_node: # nothing left/yet in this generation
 				delay = max(0, delay_ts - ts)
@@ -138,6 +138,7 @@ def scrub( paths, meta_db,
 
 	# Drop all meta-nodes for files with old generation
 	meta_db.metadata_clean()
+	if scan_only: return
 
 	# Check the rest of non-clean files in this gen
 	while True:
@@ -167,6 +168,34 @@ def main(argv=None):
 			' Available CLI options override the values in any config.')
 	parser.add_argument('--debug',
 		action='store_true', help='Verbose operation mode.')
+
+	cmds = parser.add_subparsers(
+		title='Supported operations (have their own suboptions as well)')
+
+	@contextmanager
+	def subcommand(name, **kwz):
+		cmd = cmds.add_parser(name, **kwz)
+		cmd.set_defaults(call=name)
+		yield cmd
+
+	with subcommand('scrub', help='Scrub configured paths, detecting bitrot,'
+			' updating checksums on legitimate changes and adding new files.') as cmd:
+		cmd.add_argument('-s', '--scan-only', action='store_true',
+			help='Do not process file contents (or open'
+				' them) in any way, just scan for new/modified files.')
+
+	with subcommand('status', help='List files with status recorded in the database.') as cmd:
+		cmd.add_argument('-v', '--verbose', action='store_true',
+			help='Display last check and modification info along with the path.')
+		cmd.add_argument('-d', '--dirty', action='store_true',
+			help='Only list files which are known to be modified since last checksum update.')
+		cmd.add_argument('-c', '--checked', action='store_true',
+			help='Only list files which were checked on the last run.')
+		cmd.add_argument('-u', '--not-checked', action='store_true',
+			help='Only list files which were left unchecked on the last run.')
+		# cmd.add_argument('-n', '--new', action='store_true',
+		# 	help='Files that are not yet recorded at all, but exist on disk. Implies fs scan.')
+
 	optz = parser.parse_args(sys.argv[1:] if argv is None else argv)
 
 	## Read configuration files
@@ -202,9 +231,27 @@ def main(argv=None):
 	with MetaDB( cfg.storage.metadata.db,
 			cfg.storage.metadata.db_parity, cfg.operation.checksum,
 			log_queries=cfg.logging.sql_queries ) as meta_db:
-		scrub( cfg.storage.path, meta_db,
-			xdev=cfg.storage.xdev, path_filter=cfg.storage.filter,
-			skip_for=skip_for, bs=cfg.operation.read_block, rate_limits=cfg.operation.rate_limit )
+		if optz.call == 'scrub':
+			scrub( cfg.storage.path, meta_db, scan_only=optz.scan_only,
+				xdev=cfg.storage.xdev, path_filter=cfg.storage.filter,
+				skip_for=skip_for, bs=cfg.operation.read_block, rate_limits=cfg.operation.rate_limit )
+
+		elif optz.call == 'status':
+			first_row = True
+			for info in meta_db.list_paths():
+				if optz.dirty and not info['dirty']: continue
+				if optz.not_checked and info['clean']: continue
+				if optz.checked and not info['clean']: continue
+
+				if not optz.verbose: print(info['path'])
+				else:
+					if not first_row: print()
+					else: first_row = False
+					print('path: {}'.format(info['path']))
+					print('  checked: {0[last_scrub]} (last run: {0[clean]})\n  dirty: {0[dirty]}{1}'.format(
+						info, ', skipped: {}'.format(info['last_skip']) if info['last_skip'] else '' ))
+
+		else: raise ValueError('Unknown command: {}'.format(optz.call))
 
 	log.debug('Done')
 
