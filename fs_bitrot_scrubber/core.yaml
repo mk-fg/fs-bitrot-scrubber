@@ -37,9 +37,10 @@ storage:
     # If path doesn't match any regexp on the list (or list is empty), it will be included.
     #
     # Examples:
-    #  - '+^/srv/video/($|family/)'   # check/scrub all files in specified absolute path
-    #  - '-^/srv/video/'   # *don't* check any other videos there
-    #  - '-(?i)\.(mp3|ogg)$' # skip mp3/ogg files in any path, unless explicitly included above
+    #  - '+^/srv/video/($|family/)' # check/scrub all files in specified absolute path
+    #  - '-^/srv/video/'            # *don't* check any other videos there
+    #  - '-^/srv/images/cat-gifs/'  # there's plenty of these on the internets
+    #  - '-(?i)\.(mp3|ogg)$'        # skip mp3/ogg files in any path, unless included above
 
 
 operation:
@@ -54,8 +55,6 @@ operation:
 
   # Ignore files that change during checksumming for a specified period of time (in hours, float).
   skip_for_hours: 3
-
-  # io_priority:
 
   # Rate limiting might be useful to avoid excessive cpu/disk usage.
   # Format of each value is "interval[:burst]", where "interval" can be specified as rate (e.g. "1/3e5").
@@ -94,9 +93,9 @@ logging: # see http://docs.python.org/library/logging.config.html
     #   encoding: utf-8
     #   maxBytes: 5242880 # 5 MiB
     #   backupCount: 2
-    #   level: NOISE
+    #   level: DEBUG
   # loggers:
-  #   twisted:
+  #   scrubber.MetaDB:
   #     handlers: [console]
   #     level: 0
   root:
