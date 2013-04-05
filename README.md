@@ -14,9 +14,12 @@ enforcement of this property as "integrity management"), but it's also heavily
 tied to intentional corruption due to security breach ("tampering"), which is
 completely out of scope for this tool.
 
-Goal of the tool is to produce as little false-positives as possible and be very
-non-intrusive - don't require any changes to existing storage stack and
-cooperate nicely with other running software by limiting used storage bandwidth.
+Goal of the tool is to detect filesystem-backing layer (or rare kernel bug-)
+induced corruption before it perpetuates itself into all existing backups (as
+old ones are phased-out) and while it can still be reverted, producing as little
+false-positives as possible and being very non-intrusive - don't require any
+changes to existing storage stack and cooperate nicely with other running
+software by limiting used storage bandwidth.
 
 Ideally, user should only remember about it's existance when (and only when)
 there is a legitimate and harmful incident of aforementioned corruption.
@@ -29,5 +32,10 @@ kernel-level change detection mehanisms
 ([dm-verity](https://code.google.com/p/cryptsetup/wiki/DMVerity),
 [IMA/EVM](http://linux-ima.sourceforge.net/), etc) are much more suited for that
 purpose.
+
+Tool also does not offer any protection against (apparently quite common) RAM
+failures, which corrupt data that is (eventually) being written-back to disk, or
+from anything that happens during file/data changes in general, focusing only on
+"untouched" at-rest data.
 
 Under heavy development, not ready for any serious use yet.
