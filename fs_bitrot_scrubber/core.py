@@ -61,7 +61,10 @@ def file_list(paths, xdev=True, path_filter=list()):
 
 	while paths:
 		path_base = paths.pop()
-		path_base_dev = os.stat(path_base).st_dev
+		try: path_base_dev = os.stat(path_base).st_dev
+		except (OSError, IOError):
+			log.info(force_unicode('Unable to access scrub-path: {}'.format(path_base)))
+			continue
 
 		for p, dirs, files in os.walk(path_base, topdown=True):
 			if xdev and p not in paths and os.stat(p).st_dev != path_base_dev:
