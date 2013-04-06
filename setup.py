@@ -41,7 +41,7 @@ setup(
 	license = 'WTFPL',
 	keywords = [ 'filesystem', 'fs', 'bitrot', 'corruption', 'change', 'detection',
 		'backup', 'alteration', 'scrubbing', 'scrub', 'integrity', 'decay', 'bit rot',
-		'storage', 'data', 'at-rest', 'at rest', 'disk', 'failure', 'control', 'checksum' ]
+		'storage', 'data', 'at-rest', 'at rest', 'disk', 'failure', 'control', 'checksum' ],
 	url = 'http://github.com/mk-fg/fs-bitrot-scrubber',
 
 	description = 'Tool to detect userspace-visible changes to'
