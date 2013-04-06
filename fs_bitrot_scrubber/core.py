@@ -183,6 +183,9 @@ def main(argv=None):
 		cmd.add_argument('-s', '--scan-only', action='store_true',
 			help='Do not process file contents (or open'
 				' them) in any way, just scan for new/modified files.')
+		cmd.add_argument('-p', '--extra-paths', nargs='+', metavar='path',
+			help='Extra paths to append to the one(s) configured via "storage.path".'
+				' Can be used to set the list of paths dynamically (e.g., via wildcard from shell).')
 
 	with subcommand('status', help='List files with status recorded in the database.') as cmd:
 		cmd.add_argument('-v', '--verbose', action='store_true',
@@ -210,9 +213,12 @@ def main(argv=None):
 	log = logging.getLogger()
 
 	## Options processing
+	if not cfg.storage.metadata.db:
+		parser.error('Path to metadata db ("storage.metadata.db") must be configured.')
 	try: cfg.operation.checksum = getattr(hashlib, cfg.operation.checksum)
 	except AttributeError: cfg.operation.checksum = hashlib.new(cfg.operation.checksum)
 	if is_str(cfg.storage.path): cfg.storage.path = [cfg.storage.path]
+	else: cfg.storage.path = list(cfg.storage.path or list())
 	_filter_actions = {'+': True, '-': False}
 	cfg.storage.filter = list(
 		(_filter_actions[pat[0]], re.compile(pat[1:]))
@@ -232,6 +238,10 @@ def main(argv=None):
 			cfg.storage.metadata.db_parity, cfg.operation.checksum,
 			log_queries=cfg.logging.sql_queries ) as meta_db:
 		if optz.call == 'scrub':
+			if optz.extra_paths: cfg.storage.path.extend(optz.extra_paths)
+			if not cfg.storage.path:
+				parser.error( 'At least one path to scrub must'
+					' be specified (via "storage.path" in config or on commandline).' )
 			scrub( cfg.storage.path, meta_db, scan_only=optz.scan_only,
 				xdev=cfg.storage.xdev, path_filter=cfg.storage.filter,
 				skip_for=skip_for, bs=cfg.operation.read_block, rate_limits=cfg.operation.rate_limit )
