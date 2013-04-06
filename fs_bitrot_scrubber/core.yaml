@@ -17,8 +17,9 @@ storage:
     db: # example: /var/lib/fs_bitrot_scrubber.sqlite
     # Path to store parity/integrity-check data for the hashes/metadata db above
     # Should provide strong guarantee that integrity data itself won't get corrupted.
-    # If empty, will be stored in the same path as "db" above, with ".check" filename suffix.
-    db_parity: # example: /var/lib/fs_bitrot_scrubber.sqlite.check
+    # If empty (null), will be stored in the same path as "db" above, with ".check" filename suffix.
+    # If set to "false", no parity data will be stored/checked.
+    db_parity: false # example: /var/lib/fs_bitrot_scrubber.sqlite.check
 
   # Do not cross filesystem boundaries.
   # This option is useful to skip transient network mounts (like nfs, sshfs, curlftpfs,
@@ -95,7 +96,7 @@ logging: # see http://docs.python.org/library/logging.config.html
     #   backupCount: 2
     #   level: DEBUG
   # loggers:
-  #   scrubber.MetaDB:
+  #   bitrot_scrubber.MetaDB:
   #     handlers: [console]
   #     level: 0
   root:

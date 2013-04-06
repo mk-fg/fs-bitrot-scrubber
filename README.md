@@ -129,21 +129,25 @@ operations, use "--debug" flag or (much better) setup proper logging, via
 "logging" section in the configuration file, e.g.:
 
 	logging:
-		debug_logfile:
-			class: logging.handlers.RotatingFileHandler
-			filename: /var/log/fs-scrubber/debug.log
-			formatter: basic
-			encoding: utf-8
-			maxBytes: 5_242_880 # 5 MiB
-			backupCount: 2
-			level: DEBUG
-		root:
-			level: 0
-			handlers: [console, debug_logfile]
+	  debug_logfile:
+	    class: logging.handlers.RotatingFileHandler
+	    filename: /var/log/fs-scrubber/debug.log
+	    formatter: basic
+	    encoding: utf-8
+	    maxBytes: 5_242_880 # 5 MiB
+	    backupCount: 2
+	    level: DEBUG
+	  root:
+	    level: DEBUG
+	    handlers: [console, debug_logfile]
 
 That way, noisy debug-level logging and status updates can be tracked via
 configured logfile, while stderr will still only contain actionable errors and
 no other noise.
+
+Note that DEBUG logging relates to number of processed paths via O(n), but all
+less-common messages (e.g. skipping a mountpoint, change to contents + mtime,
+etc) are INFO, and above if message is actionable (e.g. corruption).
 
 See default [python logging subsystem
 documentation](http://docs.python.org/library/logging.config.html) for more

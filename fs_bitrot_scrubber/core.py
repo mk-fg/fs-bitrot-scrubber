@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#-*- coding: utf-8 -*-
 from __future__ import print_function
 
 import itertools as it, operator as op, functools as ft
@@ -8,13 +9,13 @@ from time import time, sleep
 import os, sys, re, hashlib, stat, types, logging
 
 
-try: from fs_bitrot_scrubber.db import MetaDB
+try: from fs_bitrot_scrubber import db, force_unicode
 except ImportError:
 	# Make sure it works from a checkout
 	if isdir(join(dirname(__file__), 'fs_bitrot_scrubber'))\
 			and exists(join(dirname(__file__), 'setup.py')):
 		sys.path.insert(0, dirname(__file__))
-	from fs_bitrot_scrubber.db import MetaDB
+	from fs_bitrot_scrubber import db, force_unicode
 
 
 is_str = lambda obj,s=types.StringTypes: isinstance(obj, s)
@@ -22,7 +23,6 @@ is_str = lambda obj,s=types.StringTypes: isinstance(obj, s)
 _re_type = type(re.compile(''))
 
 def check_filters(path, filters, default=True):
-	path = '/' + path
 	for rule in filters:
 		try: x, pat = rule
 		except (TypeError, ValueError): x, pat = False, rule
@@ -57,13 +57,17 @@ def token_bucket(metric, spec):
 def file_list(paths, xdev=True, path_filter=list()):
 	_check_filters = ft.partial(check_filters, filters=path_filter)
 	paths = set(it.imap(realpath, paths))
+	log = logging.getLogger('bitrot_scrubber.walk')
 
 	while paths:
 		path_base = paths.pop()
 		path_base_dev = os.stat(path_base).st_dev
 
 		for p, dirs, files in os.walk(path_base, topdown=True):
-			if xdev and p not in paths and os.stat(p).st_dev != path_base_dev: continue
+			if xdev and p not in paths and os.stat(p).st_dev != path_base_dev:
+				log.info(force_unicode('Skipping mountpoint: {}'.format(p)))
+				while dirs: dirs.pop() # don't descend into anything here
+				continue
 			paths.discard(p)
 
 			i_off = 0
@@ -85,8 +89,8 @@ def file_list(paths, xdev=True, path_filter=list()):
 def scrub( paths, meta_db,
 		xdev=True, path_filter=list(), scan_only=False,
 		skip_for=3 * 3600, bs=4 * 2**20, rate_limits=None ):
-	log = logging.getLogger('scrubber')
-	log.debug('Scrub generation number: {}'.format(meta_db.generation))
+	log = logging.getLogger('bitrot_scrubber.scrub')
+	log.info('Scrub generation number: {}'.format(meta_db.generation))
 
 	scan_limit = getattr(rate_limits, 'scan', None)
 	if not scan_only: read_limit = getattr(rate_limits, 'read', None)
@@ -95,6 +99,7 @@ def scrub( paths, meta_db,
 	file_node = None # currently scrubbed (checksummed) file
 
 	for path, fstat in file_list(paths, xdev=xdev, path_filter=path_filter):
+		log.debug(force_unicode('Scanning path: {}'.format(path)))
 		# Bumps generaton number on path as well, to facilitate cleanup
 		meta_db.metadata_check( path,
 			size=fstat.st_size, mtime=fstat.st_mtime, ctime=fstat.st_ctime )
@@ -202,15 +207,13 @@ def main(argv=None):
 	optz = parser.parse_args(sys.argv[1:] if argv is None else argv)
 
 	## Read configuration files
-	from lya import AttrDict
-	cfg = AttrDict.from_yaml('{}.yaml'.format(
+	import lya
+	cfg = lya.AttrDict.from_yaml('{}.yaml'.format(
 		os.path.splitext(os.path.realpath(__file__))[0] ))
 	for k in optz.config: cfg.update_yaml(k)
-
-	## Logging
-	logging.basicConfig(
-		level=logging.WARNING if not optz.debug else logging.DEBUG )
-	log = logging.getLogger()
+	lya.configure_logging( cfg.logging,
+		logging.WARNING if not optz.debug else logging.DEBUG )
+	log = logging.getLogger('bitrot_scrubber.root')
 
 	## Options processing
 	if not cfg.storage.metadata.db:
@@ -228,13 +231,14 @@ def main(argv=None):
 		spec = token_bucket(metric, spec)
 		next(spec)
 		cfg.operation.rate_limit[metric] = spec
-	if not cfg.storage.metadata.db_parity:
+	if cfg.storage.metadata.db_parity is None:
 		cfg.storage.metadata.db_parity = cfg.storage.metadata.db + '.check'
 	skip_for = cfg.operation.skip_for_hours * 3600
 	cfg.operation.read_block = int(cfg.operation.read_block)
 
 	## Actual work
-	with MetaDB( cfg.storage.metadata.db,
+	log.debug('Starting (operation: {})'.format(optz.call))
+	with db.MetaDB( cfg.storage.metadata.db,
 			cfg.storage.metadata.db_parity, cfg.operation.checksum,
 			log_queries=cfg.logging.sql_queries ) as meta_db:
 		if optz.call == 'scrub':
@@ -262,7 +266,6 @@ def main(argv=None):
 						info, ', skipped: {}'.format(info['last_skip']) if info['last_skip'] else '' ))
 
 		else: raise ValueError('Unknown command: {}'.format(optz.call))
-
 	log.debug('Done')
 
 

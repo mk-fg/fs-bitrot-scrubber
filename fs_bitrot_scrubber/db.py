@@ -7,13 +7,15 @@ from time import time
 from os.path import exists
 import os, sys, sqlite3, logging, hashlib
 
+from fs_bitrot_scrubber import force_unicode
+
 
 class FileNode(object):
 
 	def __init__(self, query_func, log, row, checksum):
 		self.q, self.log, self.meta = query_func, log, row
 		self.src = open(row['path'])
-		self.log.debug('Checking file: {}'.format(row['path']))
+		self.log.debug(force_unicode('Checking file: {}'.format(row['path'])))
 		self.src_meta, self.src_checksum = self.stat(), checksum()
 
 	def stat(self):
@@ -36,10 +38,10 @@ class FileNode(object):
 			if self.meta['checksum'] != digest: # either new hash or changes
 				if self.meta['checksum'] is not None: # can still be intentional change w/ reverted mtime
 					if max(abs(self.meta['ctime'] - ctime), abs(self.meta['mtime'] - mtime)) >= 1:
-						self.log.info( 'Detected change in'
-							' file contents and ctime: {}'.format(self.meta['path']) )
+						self.log.info(force_unicode( 'Detected change in'
+							' file contents and ctime: {}'.format(self.meta['path']) ))
 					else: # bitrot!!!
-						self.log.error('Detected unmarked changes: {}'.format(self.meta['path']))
+						self.log.error(force_unicode('Detected unmarked changes: {}'.format(self.meta['path'])))
 			# Update with last-seen metadata,
 			#  regardless of what was set in metadata_check()
 			self.q( 'UPDATE files SET dirty = 0, clean = 1,'
@@ -95,7 +97,7 @@ class MetaDB(object):
 
 	def __init__( self, path, path_check=None,
 			checksum=None, log=None, log_queries=False ):
-		self._log = logging.getLogger('scrubber.MetaDB') if not log else log
+		self._log = logging.getLogger('bitrot_scrubber.MetaDB') if not log else log
 		self._log_sql = log_queries
 		self._checksum = hashlib.sha256 if not checksum else checksum
 		self._db_path, self._db_parity = path, path_check
@@ -105,7 +107,7 @@ class MetaDB(object):
 	@contextmanager
 	def _cursor(self, query, params=tuple(), **kwz):
 		if self._log_sql:
-			self._log.debug('Query: {!r}, data: {!r}'.format(query, params))
+			self._log.debug(force_unicode('Query: {!r}, data: {!r}'.format(query, params)))
 		with self._db as db:
 			with closing(db.execute(query, params, **kwz)) as c:
 				yield c
