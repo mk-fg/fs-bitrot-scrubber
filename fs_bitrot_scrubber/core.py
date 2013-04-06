@@ -94,7 +94,7 @@ def scrub( paths, meta_db,
 
 	scan_limit = getattr(rate_limits, 'scan', None)
 	if not scan_only: read_limit = getattr(rate_limits, 'read', None)
-	delay_ts = 0 # deadline for the next limit
+	ts_scan = ts_read = 0 # deadline for the next iteration
 
 	file_node = None # currently scrubbed (checksummed) file
 
@@ -106,20 +106,18 @@ def scrub( paths, meta_db,
 
 		# Scan always comes first, unless hits the limit
 		if not scan_limit: continue
-		delay = scan_limit.send(1)
+		ts, delay = time(), scan_limit.send(1)
 		if not delay: continue
-		ts = time()
-		if ts + delay < delay_ts: continue # reads are still banned
-		delay_ts = ts + delay
+		ts_scan = ts + delay
 
 		while True:
-			if ts >= delay_ts: break
+			if ts >= ts_scan: break # get back to scan asap
 
 			if not scan_only and not file_node: # pick next node
 				file_node = meta_db.get_file_to_scrub(skip_for=skip_for)
-			if not file_node: # nothing left/yet in this generation
-				delay = max(0, delay_ts - ts)
-				if delay:
+			if ts_scan < ts_read or not file_node:
+				delay = ts_scan - ts
+				if delay > 0:
 					log.debug('Rate-limiting delay (scan): {:.1f}s'.format(delay))
 					sleep(delay)
 				break
@@ -130,13 +128,11 @@ def scrub( paths, meta_db,
 				file_node = None
 			ts = time()
 
-			if read_limit: # min delay
+			if read_limit:
 				delay = read_limit.send(bs_read)
 				if delay:
-					if ts + delay >= delay_ts:
-						delay_ts = ts + delay
-						break # scan comes next
-					else:
+					ts_read = ts + delay
+					if ts_read < ts_scan:
 						log.debug('Rate-limiting delay (read): {:.1f}s'.format(delay))
 						sleep(delay)
 						ts = time()
