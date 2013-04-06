@@ -224,7 +224,6 @@ Plans
 
 	Though maybe blkio cgroup resource controller and ionice settings should
 	suffice here.
-	Might be worth adding example systemd unit with these settings.
 
 - Use fcntl leases, inotify or some other non-polling mechanism to reliably
 	detect changes from other pids during file checksumming.

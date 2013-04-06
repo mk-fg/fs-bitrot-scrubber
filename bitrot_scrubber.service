@@ -1,0 +1,12 @@
+[Unit]
+Description=FS bitrot scrubber
+
+[Service]
+Type=oneshot
+UMask=077
+IOSchedulingClass=idle
+CPUSchedulingPolicy=idle
+ExecStart=/usr/bin/fs-bitrot-scrubber -c /etc/bitrot_scrubber.yaml scrub
+
+[Install]
+WantedBy=multi-user.target
