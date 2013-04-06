@@ -121,7 +121,7 @@ def scrub( paths, meta_db,
 			if ts_scan < ts_read or not file_node:
 				delay = ts_scan - ts
 				if delay > 0:
-					log.debug('Rate-limiting delay (scan): {:.1f}s'.format(delay))
+					# log.debug('Rate-limiting delay (scan): {:.1f}s'.format(delay))
 					sleep(delay)
 				break
 
@@ -136,7 +136,7 @@ def scrub( paths, meta_db,
 				if delay:
 					ts_read = ts + delay
 					if ts_read < ts_scan:
-						log.debug('Rate-limiting delay (read): {:.1f}s'.format(delay))
+						# log.debug('Rate-limiting delay (read): {:.1f}s'.format(delay))
 						sleep(delay)
 						ts = time()
 
@@ -155,7 +155,7 @@ def scrub( paths, meta_db,
 		if read_limit:
 			delay = read_limit.send(bs_read)
 			if delay:
-				log.debug('Rate-limiting delay (read): {:.1f}s'.format(delay))
+				# log.debug('Rate-limiting delay (read): {:.1f}s'.format(delay))
 				sleep(delay)
 
 
