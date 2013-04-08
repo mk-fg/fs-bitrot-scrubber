@@ -50,7 +50,9 @@ operation:
   # Metadata-db must be completely rebuilt from scratch on any change here.
   checksum: sha256
 
-  # SIze of block to read/hash from files. Higher - faster, but needs more RAM.
+  # Size of a block to read/hash from files.
+  # Higher - faster, but needs more RAM and makes
+  #  rate-limiting less granular (long read, long delay, ...).
   # Has performance impact only up to about 1 MiB here.
   read_block: 2_000_000 # ~2 MiB
 
