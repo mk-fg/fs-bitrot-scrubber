@@ -90,61 +90,66 @@ def file_list(paths, xdev=True, path_filter=list()):
 
 
 def scrub( paths, meta_db,
-		xdev=True, path_filter=list(), scan_only=False,
+		xdev=True, path_filter=list(),
+		scan_only=False, resume=False,
 		skip_for=3 * 3600, bs=4 * 2**20, rate_limits=None ):
 	log = logging.getLogger('bitrot_scrubber.scrub')
+
+	meta_db.set_generation(new=not resume)
 	log.info('Scrub generation number: {}'.format(meta_db.generation))
 
-	scan_limit = getattr(rate_limits, 'scan', None)
+	if not resume: scan_limit = getattr(rate_limits, 'scan', None)
 	if not scan_only: read_limit = getattr(rate_limits, 'read', None)
 	ts_scan = ts_read = 0 # deadline for the next iteration
 
 	file_node = None # currently scrubbed (checksummed) file
 
-	for path, fstat in file_list(paths, xdev=xdev, path_filter=path_filter):
-		log.debug(force_unicode('Scanning path: {}'.format(path)))
-		# Bumps generaton number on path as well, to facilitate cleanup
-		meta_db.metadata_check( path,
-			size=fstat.st_size, mtime=fstat.st_mtime, ctime=fstat.st_ctime )
+	if not resume:
+		## Scan
+		for path, fstat in file_list(paths, xdev=xdev, path_filter=path_filter):
+			log.debug(force_unicode('Scanning path: {}'.format(path)))
+			# Bumps generaton number on path as well, to facilitate cleanup
+			meta_db.metadata_check( path,
+				size=fstat.st_size, mtime=fstat.st_mtime, ctime=fstat.st_ctime )
 
-		# Scan always comes first, unless hits the limit
-		if not scan_limit: continue
-		ts, delay = time(), scan_limit.send(1)
-		if not delay: continue
-		ts_scan = ts + delay
+			# Scan always comes first, unless hits the limit
+			if not scan_limit: continue
+			ts, delay = time(), scan_limit.send(1)
+			if not delay: continue
+			ts_scan = ts + delay
 
-		while True:
-			if ts >= ts_scan: break # get back to scan asap
+			while True:
+				if ts >= ts_scan: break # get back to scan asap
 
-			if not scan_only and not file_node: # pick next node
-				file_node = meta_db.get_file_to_scrub(skip_for=skip_for)
-			if ts_scan < ts_read or not file_node:
-				delay = ts_scan - ts
-				if delay > 0:
-					# log.debug('Rate-limiting delay (scan): {:.1f}s'.format(delay))
-					sleep(delay)
-				break
-
-			bs_read = file_node.read(bs)
-			if not bs_read: # done with this one
-				file_node.close()
-				file_node = None
-			ts = time()
-
-			if read_limit:
-				delay = read_limit.send(bs_read)
-				if delay:
-					ts_read = ts + delay
-					if ts_read < ts_scan:
-						# log.debug('Rate-limiting delay (read): {:.1f}s'.format(delay))
+				if not scan_only and not file_node: # pick next node
+					file_node = meta_db.get_file_to_scrub(skip_for=skip_for)
+				if ts_scan < ts_read or not file_node:
+					delay = ts_scan - ts
+					if delay > 0:
+						# log.debug('Rate-limiting delay (scan): {:.1f}s'.format(delay))
 						sleep(delay)
-						ts = time()
+					break
 
-	# Drop all meta-nodes for files with old generation
-	meta_db.metadata_clean()
-	if scan_only: return
+				bs_read = file_node.read(bs)
+				if not bs_read: # done with this one
+					file_node.close()
+					file_node = None
+				ts = time()
 
-	# Check the rest of non-clean files in this gen
+				if read_limit:
+					delay = read_limit.send(bs_read)
+					if delay:
+						ts_read = ts + delay
+						if ts_read < ts_scan:
+							# log.debug('Rate-limiting delay (read): {:.1f}s'.format(delay))
+							sleep(delay)
+							ts = time()
+
+		## Drop all meta-nodes for files with old generation
+		meta_db.metadata_clean()
+		if scan_only: return
+
+	## Check the rest of non-clean files in this gen
 	while True:
 		if not file_node: file_node = meta_db.get_file_to_scrub(skip_for=skip_for)
 		if not file_node: break
@@ -187,6 +192,9 @@ def main(argv=None):
 		cmd.add_argument('-s', '--scan-only', action='store_true',
 			help='Do not process file contents (or open'
 				' them) in any way, just scan for new/modified files.')
+		cmd.add_argument('-r', '--resume', action='store_true',
+			help='Dont scan any paths, but rather resume scrubbing from the point'
+				' where the last run was interrupted. Mutually exclusive with --scan-only.')
 		cmd.add_argument('-p', '--extra-paths', nargs='+', metavar='path',
 			help='Extra paths to append to the one(s) configured via "storage.path".'
 				' Can be used to set the list of paths dynamically (e.g., via wildcard from shell).')
@@ -241,11 +249,14 @@ def main(argv=None):
 			cfg.storage.metadata.db_parity, cfg.operation.checksum,
 			log_queries=cfg.logging.sql_queries ) as meta_db:
 		if optz.call == 'scrub':
+			if optz.scan_only and optz.resume:
+				parser.error('Either --scan-only or --resume can be specified, not both.')
 			if optz.extra_paths: cfg.storage.path.extend(optz.extra_paths)
 			if not cfg.storage.path:
 				parser.error( 'At least one path to scrub must'
 					' be specified (via "storage.path" in config or on commandline).' )
-			scrub( cfg.storage.path, meta_db, scan_only=optz.scan_only,
+			scrub( cfg.storage.path, meta_db,
+				scan_only=optz.scan_only, resume=optz.resume,
 				xdev=cfg.storage.xdev, path_filter=cfg.storage.filter,
 				skip_for=skip_for, bs=cfg.operation.read_block, rate_limits=cfg.operation.rate_limit )
 

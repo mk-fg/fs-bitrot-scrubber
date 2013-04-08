@@ -102,7 +102,6 @@ class MetaDB(object):
 		self._checksum = hashlib.sha256 if not checksum else checksum
 		self._db_path, self._db_parity = path, path_check
 		self._init_db()
-		self.generation = self.get_generation()
 
 	@contextmanager
 	def _cursor(self, query, params=tuple(), **kwz):
@@ -163,6 +162,9 @@ class MetaDB(object):
 		gen = row['generation'] if row else 0
 		if new: gen += 1
 		return gen
+
+	def set_generation(self, new=True):
+		self.generation = self.get_generation(new=new)
 
 
 	def metadata_check(self, path, size, mtime, ctime):

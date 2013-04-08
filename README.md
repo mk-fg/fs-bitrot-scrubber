@@ -230,6 +230,20 @@ See more info on filters in the [base
 config](https://github.com/mk-fg/fs-bitrot-scrubber/blob/master/fs_bitrot_scrubber/core.yaml).
 
 
+### Interrupt / resume
+
+Scrubbing operation can always be resumed if interrupted.
+
+If it was interrupted during scan (crawling over fs tree) though, running "scrub
+--resume" will only check paths that were seen during last scan, which might be
+some subset of all the ones available in the paths and/or discovered during
+previous scan.
+
+If scan and checksum operations should not be interleaved, "scrub --scan-only"
+can be run first to update the file list, followed by "scrub --resume" to
+actually check these files.
+
+
 
 Plans
 --------------------
@@ -247,9 +261,6 @@ Plans
 
 - Use fcntl leases, inotify or some other non-polling mechanism to reliably
 	detect changes from other pids during file checksumming.
-
-- Support resuming of scrubbing operation without scanning paths for files (and
-	bumping metadata generation).
 
 - Better progress logging - should be easy to display how much files and even
 	GiBs is left to check on a single run.
