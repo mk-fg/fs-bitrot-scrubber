@@ -38,6 +38,26 @@ failures, which corrupt data that is (eventually) being written-back to disk, or
 from anything that happens during file/data changes in general, focusing only on
 "untouched" at-rest data.
 
+Some studies/thoughts on the subject:
+
+- [Schwarz et.al: Disk Scrubbing in Large, Archival Storage
+	Systems](http://www.cse.scu.edu/~tschwarz/Papers/mascots04.pdf)
+
+- [Baker et.al: A fresh look at the reliability of long-term digital
+	storage](http://arxiv.org/pdf/cs/0508130)
+
+- [Bairavasundaram et.al: An Analysis of Latent Sector Errors in Disk
+	Drives](http://bnrg.eecs.berkeley.edu/~randy/Courses/CS294.F07/11.1.pdf)
+
+- [KAHN Consulting: An Evaluation of EMC Centera Governance
+	Edition](http://uk.emc.com/collateral/analyst-reports/kci-evaluation-of-emc-centera.pdf)
+
+- [Jeff Bonwick: ZFS End-to-End Data
+	Integrity](https://blogs.oracle.com/bonwick/entry/zfs_end_to_end_data)
+
+- [My blog post with brief overview of the issue throughout linux storage
+	stack](http://blog.fraggod.net/2013/04/06/fighting-storage-bitrot-and-decay.html)
+
 
 
 Installation
