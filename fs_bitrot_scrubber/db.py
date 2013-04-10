@@ -40,7 +40,8 @@ class FileNode(object):
 						self.log.info(force_unicode( 'Detected change in'
 							' file contents and ctime: {}'.format(self.meta['path']) ))
 					else: # bitrot!!!
-						self.log.error(force_unicode('Detected unmarked changes: {}'.format(self.meta['path'])))
+						self.log.error(force_unicode( 'Detected'
+							' unmarked changes: {}'.format(self.meta['path']) ))
 			# Update with last-seen metadata,
 			#  regardless of what was set in metadata_check()
 			self.q( 'UPDATE files SET dirty = 0, clean = 1,'
@@ -207,7 +208,8 @@ class MetaDB(object):
 			if not row: return # nothing more/yet to check
 			try: src = open(row['path'])
 			except (IOError, OSError):
-				self._log.debug('Failed to open scanned path, skipping it: {!r}'.format(row['path']))
+				self._log.debug(force_unicode( 'Failed to open'
+					' scanned path, skipping it: {}'.format(row['path']) ))
 				self.drop_file(row['path'])
 				continue
 			return FileNode(self._query, self._log, src, row, checksum=self._checksum)

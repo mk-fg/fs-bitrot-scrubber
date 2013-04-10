@@ -84,7 +84,10 @@ def file_list(paths, xdev=True, path_filter=list()):
 			for name in files:
 				path = join(p, name)
 				if not _check_filters(path): continue
-				fstat = os.lstat(path)
+				try: fstat = os.lstat(path)
+				except (IOError, OSError): # file vanished
+					log.info(force_unicode('Failed to stat path: {}'.format(path)))
+					continue
 				if not stat.S_ISREG(fstat.st_mode): continue
 				yield path, fstat
 
