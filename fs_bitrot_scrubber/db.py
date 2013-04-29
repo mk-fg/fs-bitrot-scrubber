@@ -7,6 +7,7 @@ from time import time
 from os.path import exists
 import os, sys, sqlite3, logging, hashlib
 
+from fs_bitrot_scrubber.fadvise import bufcache_dontneed
 from fs_bitrot_scrubber import force_unicode
 
 
@@ -16,6 +17,10 @@ class FileNode(object):
 		self.q, self.log, self.meta, self.src = query_func, log, row, src
 		self.log.debug(force_unicode('Checking file: {}'.format(row['path'])))
 		self.src_meta, self.src_checksum = self.stat(), checksum()
+
+	def fadvise(self):
+		'Advise kernel to avoid caching read data in RAM.'
+		bufcache_dontneed(self.src)
 
 	def stat(self):
 		# ctime change is also important here,

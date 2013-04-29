@@ -93,9 +93,8 @@ def file_list(paths, xdev=True, path_filter=list()):
 
 
 def scrub( paths, meta_db,
-		xdev=True, path_filter=list(),
-		scan_only=False, resume=False,
-		skip_for=3 * 3600, bs=4 * 2**20, rate_limits=None ):
+		xdev=True, path_filter=list(), scan_only=False, resume=False,
+		skip_for=3 * 3600, bs=4 * 2**20, rate_limits=None, use_fadvise=True ):
 	log = logging.getLogger('bitrot_scrubber.scrub')
 
 	meta_db.set_generation(new=not resume)
@@ -126,6 +125,7 @@ def scrub( paths, meta_db,
 
 				if not scan_only and not file_node: # pick next node
 					file_node = meta_db.get_file_to_scrub(skip_for=skip_for)
+					if file_node and use_fadvise: file_node.fadvise()
 				if ts_scan < ts_read or not file_node:
 					delay = ts_scan - ts
 					if delay > 0:
@@ -156,6 +156,7 @@ def scrub( paths, meta_db,
 	while True:
 		if not file_node: file_node = meta_db.get_file_to_scrub(skip_for=skip_for)
 		if not file_node: break
+		elif use_fadvise: file_node.fadvise()
 		bs_read = file_node.read(bs)
 		if not bs_read:
 			file_node.close()
@@ -261,7 +262,8 @@ def main(argv=None):
 			scrub( cfg.storage.path, meta_db,
 				scan_only=optz.scan_only, resume=optz.resume,
 				xdev=cfg.storage.xdev, path_filter=cfg.storage.filter,
-				skip_for=skip_for, bs=cfg.operation.read_block, rate_limits=cfg.operation.rate_limit )
+				skip_for=skip_for, bs=cfg.operation.read_block,
+				rate_limits=cfg.operation.rate_limit, use_fadvise=cfg.operation.use_fadvise )
 
 		elif optz.call == 'status':
 			first_row = True

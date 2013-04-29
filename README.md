@@ -245,6 +245,21 @@ can be run first to update the file list, followed by "scrub --resume" to
 actually check these files.
 
 
+### posix_fadvise(3)
+
+Using `posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED)` on each opened file is
+enabled by default, and is implemented via ctypes.
+
+This is done to instruct kernel to not bother caching read data (evicting othe
+potentially-useful caches and creating excess memory pressure), as should only
+be used once.
+
+On non-linux platforms (or if ctypes module is not available), such naive
+binding may potentially cause crashes (right after "DEBUG: Checking file: ..."
+lines), in which case it can be disabled via `operation.use_fadvise`
+configuration option.
+
+
 
 Plans
 --------------------

@@ -56,11 +56,18 @@ operation:
   # Has performance impact only up to about 1 MiB here.
   read_block: 2_000_000 # ~2 MiB
 
+  # Use posix_fadvise(3) libc call via ctypes to set POSIX_FADV_DONTNEED hint.
+  # This instructs the kernel to avoid caching
+  #  the data in RAM needlessly, as it will be used only once.
+  # Can be disabled if produces errors on some (likely non-linux) platform.
+  use_fadvise: true
+
   # Ignore files that change during checksumming for a specified period of time (in hours, float).
   skip_for_hours: 3
 
   # Rate limiting might be useful to avoid excessive cpu/disk usage.
-  # Format of each value is "interval[:burst]", where "interval" can be specified as rate (e.g. "1/3e5").
+  # Format of each value is "interval[:burst]",
+  #  where "interval" can be specified as rate (e.g. "1/3e5").
   # Simple token bucket algorithm is used. Empty values mean "no limit".
   # Examples:
   #   "scan: 1/10:50" - 10 files per second, up to 50 at once (if rate was lower before).
