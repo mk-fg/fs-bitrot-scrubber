@@ -245,19 +245,20 @@ can be run first to update the file list, followed by "scrub --resume" to
 actually check these files.
 
 
-### posix_fadvise(3)
+### posix_fadvise
 
-Using `posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED)` on each opened file is
+Usage of posix_fadvise(3) on each file to enable POSIX_FADV_SEQUENTIAL after
+open() and do POSIX_FADV_DONTNEED after each 60 MiB (configurable) read is
 enabled by default, and is implemented via ctypes.
 
-This is done to instruct kernel to not bother caching read data (evicting othe
-potentially-useful caches and creating excess memory pressure), as should only
-be used once.
+This is done to instruct kernel to boost readahead buffer and not bother caching
+read data (evicting other potentially-useful caches and creating extra memory
+pressure), as it should only be used once.
 
-On non-linux platforms (or if ctypes module is not available), such naive
-binding may potentially cause crashes (right after "DEBUG: Checking file: ..."
-lines), in which case it can be disabled via `operation.use_fadvise`
-configuration option.
+On non-linux platforms (or if module is not available, e.g. on non-cPython),
+such naive ctypes implementation may potentially cause crashes (right after
+"DEBUG: Checking file: ..."  lines), in which case it can be disabled via
+`operation.use_fadvise` configuration option.
 
 
 

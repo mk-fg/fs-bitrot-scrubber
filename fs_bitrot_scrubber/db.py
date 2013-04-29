@@ -7,20 +7,36 @@ from time import time
 from os.path import exists
 import os, sys, sqlite3, logging, hashlib
 
-from fs_bitrot_scrubber.fadvise import bufcache_dontneed
+from fs_bitrot_scrubber.fadvise import fadvise
 from fs_bitrot_scrubber import force_unicode
 
 
 class FileNode(object):
 
-	def __init__(self, query_func, log, src, row, checksum):
+	src_fadvise_count, src_fadvise_bs = 0, 60 * 2**20 # 60 MiB
+
+	def __init__(self, query_func, log, src, row, checksum, use_fadvise=True):
 		self.q, self.log, self.meta, self.src = query_func, log, row, src
 		self.log.debug(force_unicode('Checking file: {}'.format(row['path'])))
 		self.src_meta, self.src_checksum = self.stat(), checksum()
 
-	def fadvise(self):
+		self.src_fadvise = bool(use_fadvise)
+		if use_fadvise\
+				and use_fadvise is not True\
+				and isinstance(use_fadvise, (int, long)):
+			self.src_fadvise_bs = use_fadvise
+		self.fadvise(seq=True)
+
+	def fadvise(self, read_bytes=None, **fadvise_kwz):
 		'Advise kernel to avoid caching read data in RAM.'
-		bufcache_dontneed(self.src)
+		if not self.src_fadvise: return
+		if read_bytes is None:
+			return fadvise(self.src, **fadvise_kwz)
+		assert not fadvise_kwz, fadvise_kwz
+		self.src_fadvise_count += read_bytes
+		if self.src_fadvise_count > self.src_fadvise_bs:
+			fadvise(self.src, drop_cache=True)
+			self.src_fadvise_count = 0
 
 	def stat(self):
 		# ctime change is also important here,
@@ -35,7 +51,9 @@ class FileNode(object):
 			self.q( 'UPDATE files SET dirty = 1,'
 				' last_skip = ? WHERE path = ?', (time(), self.meta['path']) )
 			return 0
-		if chunk: self.src_checksum.update(chunk)
+		if chunk:
+			self.src_checksum.update(chunk)
+			self.fadvise(len(chunk))
 		else:
 			digest = self.src_checksum.digest()
 			size, ctime, mtime = self.src_meta
@@ -56,6 +74,7 @@ class FileNode(object):
 		return len(chunk)
 
 	def close(self):
+		if self.src_fadvise: self.fadvise(drop_cache=True)
 		self.src.close()
 		self.src = self.src_meta = self.src_checksum = None
 
@@ -101,10 +120,11 @@ class MetaDB(object):
 
 
 	def __init__( self, path, path_check=None,
-			checksum=None, log=None, log_queries=False ):
+			checksum=None, use_fadvise=True, log=None, log_queries=False ):
 		self._log = logging.getLogger('bitrot_scrubber.MetaDB') if not log else log
 		self._log_sql = log_queries
 		self._checksum = hashlib.sha256 if not checksum else checksum
+		self._use_fadvise = use_fadvise
 		self._db_path, self._db_parity = path, path_check
 		self._init_db()
 
@@ -217,7 +237,8 @@ class MetaDB(object):
 					' scanned path, skipping it: {}'.format(row['path']) ))
 				self.drop_file(row['path'])
 				continue
-			return FileNode(self._query, self._log, src, row, checksum=self._checksum)
+			return FileNode( self._query, self._log, src, row,
+				checksum=self._checksum, use_fadvise=self._use_fadvise )
 
 	def drop_file(self, path):
 		self._query('DELETE FROM files WHERE generation = ? AND path = ?', (self.generation, path))

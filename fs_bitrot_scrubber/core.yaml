@@ -56,10 +56,12 @@ operation:
   # Has performance impact only up to about 1 MiB here.
   read_block: 2_000_000 # ~2 MiB
 
-  # Use posix_fadvise(3) libc call via ctypes to set POSIX_FADV_DONTNEED hint.
-  # This instructs the kernel to avoid caching
-  #  the data in RAM needlessly, as it will be used only once.
+  # Use posix_fadvise(3) libc call via ctypes to set i/o hints.
+  # This instructs the kernel about sequential reads (so it can boost readahead buffer)
+  #  and to avoid caching the data in RAM needlessly, as it will be used only once.
   # Can be disabled if produces errors on some (likely non-linux) platform.
+  # Can also be set to a number of read bytes (>0), after which
+  #  each POSIX_FADV_DONTNEED should be issued, default is 60 MiB.
   use_fadvise: true
 
   # Ignore files that change during checksumming for a specified period of time (in hours, float).
