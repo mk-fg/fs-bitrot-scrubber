@@ -251,7 +251,8 @@ def main(argv=None):
 			cfg.storage.metadata.db_parity, cfg.operation.checksum,
 			log_queries=cfg.logging.sql_queries,
 			use_fadvise=cfg.operation.use_fadvise,
-			commit_after=cfg.storage.metadata.db_commit_after ) as meta_db:
+			commit_after=op.itemgetter('queries', 'seconds')\
+				(cfg.storage.metadata.db_commit_after) ) as meta_db:
 		if optz.call == 'scrub':
 			if optz.scan_only and optz.resume:
 				parser.error('Either --scan-only or --resume can be specified, not both.')
