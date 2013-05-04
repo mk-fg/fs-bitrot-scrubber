@@ -119,22 +119,30 @@ class MetaDB(object):
 	_db = None
 
 
-	def __init__( self, path, path_check=None,
-			checksum=None, use_fadvise=True, log=None, log_queries=False ):
+	def __init__( self, path, path_check=None, checksum=None,
+			use_fadvise=True, log=None, log_queries=False, commit_after=None ):
 		self._log = logging.getLogger('bitrot_scrubber.MetaDB') if not log else log
 		self._log_sql = log_queries
 		self._checksum = hashlib.sha256 if not checksum else checksum
 		self._use_fadvise = use_fadvise
 		self._db_path, self._db_parity = path, path_check
+
+		if not commit_after or commit_after < 0: commit_after = None
+		self._db_seq, self._db_seq_limit = 0, commit_after
+
 		self._init_db()
 
 	@contextmanager
 	def _cursor(self, query, params=tuple(), **kwz):
 		if self._log_sql:
 			self._log.debug(force_unicode('Query: {!r}, data: {!r}'.format(query, params)))
-		with self._db as db:
-			with closing(db.execute(query, params, **kwz)) as c:
-				yield c
+		self._db_seq += 1
+		try:
+			with closing(self._db.execute(query, params, **kwz)) as c: yield c
+		finally:
+			if self._db_seq_limit and self._db_seq >= self._db_seq_limit:
+				self._db.commit()
+				self._db_seq = 0
 
 	def _query(self, *query_argz, **query_kwz):
 		with self._cursor(*query_argz, **query_kwz): pass
@@ -170,6 +178,7 @@ class MetaDB(object):
 
 	def close(self):
 		if self._db:
+			self._db.commit()
 			self._db.close()
 			self._db = None
 			if exists(self._db_path):

@@ -20,6 +20,8 @@ storage:
     # If empty (null), will be stored in the same path as "db" above, with ".check" filename suffix.
     # If set to "false", no parity data will be stored/checked.
     db_parity: false # example: /var/lib/fs_bitrot_scrubber.sqlite.check
+    # Number of queries to commit db transactions after (1 - after every query, 0 - on exit only).
+    db_commit_after: 50
 
   # Do not cross filesystem boundaries.
   # This option is useful to skip transient network mounts (like nfs, sshfs, curlftpfs,
