@@ -1,3 +1,49 @@
+Deprecation Notice
+--------------------
+
+This is a very old python2 script that is only here for reference.\
+Haven't used it for anything myself in >10y, and no one else should.
+
+Much better modern options to use instead, as of 2023:
+
+- [zfs], [btrfs], [bcachefs] and other checksumming filesystems.
+
+  Any issues will automatically be detected on these, and they also allow data
+  redundancy and automatic repairs either via device mirroring, (meta-)data
+  duplication (btrfs DUP profiles) or forward error correction codes (bcachefs).
+
+- [b2tag] - good userspace tool to use as an alternative to filesystem-level checksums.
+
+  Uses good fast hashing (BLAKE2) and stores it in files' metadata - extended
+  attributes - to check easily regardless of how/where files get moved later.
+
+- Linux device encryption with [dm-integrity].
+
+  Using authenticated encryption detects any kind of unintentional data changes.
+
+  Also, using [Adiantum cipher modes], e.g. as `--cipher xchacha12,aes-adiantum-plain64`
+  with cryptsetup, makes underlying bitrot/manipulation much more apparent,
+  scrambling whole 4K blocks of data on any bitflip, so can be used by itself
+  with workloads that don't tolerate and detect such high amounts of corruption.
+
+- [Linux fscrypt], [gocryptfs] and other encryption above filesystem layer.
+
+  These are always using authenticated encryption, which always detects
+  any underlying changes.
+
+Original README is preserved below as well, in case it might
+still be useful for some reason.
+
+[zfs]: https://zfsonlinux.org/
+[btrfs]: https://btrfs.readthedocs.io/en/latest/
+[bcachefs]: https://bcachefs.org/
+[b2tag]: https://github.com/modelrockettier/b2tag
+[dm-integrity]: https://gitlab.com/cryptsetup/cryptsetup/-/wikis/DMIntegrity
+[Adiantum cipher modes]: https://lwn.net/Articles/776721/
+[Linux fscrypt]: https://docs.kernel.org/filesystems/fscrypt.html
+[gocryptfs]: https://nuetzlich.net/gocryptfs/
+
+
 fs-bitrot-scrubber
 --------------------
 
@@ -262,7 +308,7 @@ such naive ctypes implementation may potentially cause crashes (right after
 
 
 
-Plans
+Improvements
 --------------------
 
 - Add sane, robust and behind-the-scenes parity check/restore for at least
